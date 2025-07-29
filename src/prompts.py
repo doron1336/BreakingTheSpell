@@ -96,3 +96,12 @@ When persuading a user not to proceed with a high-risk money transfer (score ≥
 6. Be concise: Keep the response clear and focused, under 150 words if possible.
 7. Encourage engagement: End with a question to keep the user engaged (e.g., "Would you like tips on avoiding scams?").
 """
+
+# Patterns for detecting potential prompt injection attempts
+PROMPT_INJECTION_PATTERNS = [
+    r'\b(ignore|disregard|override|forget)\b.*\b(instruction(s)?|prompt|rule(s)?)\b',  # e.g., "ignore instructions"
+    r'\b(system|admin|root|bot)\b.*\b(command|execute|change|modify)\b',  # e.g., "system command"
+    r'\b(show|reveal|print)\b.*\b(prompt|code|internal)\b',  # e.g., "show prompt"
+    r'\b(new|update|set)\b.*\b(prompt|rule|behavior)\b',  # e.g., "set new prompt"
+    r'[\[\]\{\}\(\)]{3,}',  # Excessive brackets or parentheses
+]

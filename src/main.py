@@ -3,23 +3,14 @@ from typing import Tuple
 import gradio as gr
 
 from classifier.main import predict_scam_probability
+from src.gpt import classify_scam_with_azure_config
 from src.prompts import (
     INITIAL_GREETING_PROMPT,
     FOLLOW_UP_PROMPT,
     HIGH_RISK_RESPONSE_PROMPT,
     LOW_RISK_RESPONSE_PROMPT
 )
-
-# Predefined set of scam types (aligned with SCAM_DETECTION_PROMPT)
-SCAM_TYPES = ['Employment', 'Online Purchase', 'Sweepstakes/Lottery/Prizes', 'Investment', 'Other', 'Phishing',
-              'Travel/Vacation/Timeshare', 'Advance Fee Loan', 'Counterfeit Product', 'CryptoCurrency', 'Charity',
-              'Debt Collections', 'Home Improvement', 'Worthless Problem-solving Service', 'Tech Support',
-              'Impersonation Scam', 'Retail Business', 'Tax Collection', 'Retail/Brand Impersonation',
-              'Fake Invoice/Supplier Bill', 'Bank/Credit Card Company Imposter', 'Identity Theft',
-              'Credit Repair/Debt Relief', 'Credit Cards', 'Government Agency Imposter', 'Healthcare/Medicaid/Medicare',
-              'Romance', 'Yellow Pages/Directories', 'Fake Check/Money Order', 'Advance-Fee/419 Scams', 'Utility',
-              'Government Impersonation', 'Government Grant', 'Financial Scam', 'Rental', 'Family/Friend Emergency',
-              'Foreign Money Exchange']
+from src.utils import sanitize_input, llm_settings
 
 
 def classify_scam_type(description: str) -> Tuple[float, str]:
@@ -31,14 +22,6 @@ def classify_scam_type(description: str) -> Tuple[float, str]:
     desc_lower = description.lower()
     max_score = 0.0
     detected_type = "unknown"
-
-    # Calculate score for each scam type based on keyword matches
-    for scam_type, keywords in SCAM_TYPES.items():
-        matches = sum(1 for keyword in keywords if keyword in desc_lower)
-        score = (matches / len(keywords)) * 100  # Percentage of matched keywords
-        if score > max_score:
-            max_score = score
-            detected_type = scam_type
 
     # Additional heuristics from SCAM_DETECTION_PROMPT
     if len(description) < 50:  # Short descriptions are more suspicious
@@ -53,9 +36,9 @@ def classify_scam_type(description: str) -> Tuple[float, str]:
 
 def chatbot_response(message: str, history: list) -> str:
     """
-    Process user message, predict scam probability, and respond using prompts from prompts.py.
+    Process user message, predict scam probability, classify scam type, and respond using prompts from prompts.py.
     Follows SYSTEM_PROMPT (guiding implementation), INITIAL_GREETING_PROMPT,
-    FOLLOW_UP_PROMPT, HIGH_RISK_RESPONSE_PROMPT, and LOW_RISK_RESPONSE_PROMPT.
+    FOLLOW_UP_PROMPT, SCAM_DETECTION_PROMPT, HIGH_RISK_RESPONSE_PROMPT, and LOW_RISK_RESPONSE_PROMPT.
     """
     # Handle empty or vague input
     if not message.strip():
@@ -63,22 +46,64 @@ def chatbot_response(message: str, history: list) -> str:
     if len(message.strip()) < 20:  # Arbitrary threshold for vague input
         return FOLLOW_UP_PROMPT
 
-    # Predict scam probability and type using the trained model
-    is_scam, scam_type = predict_scam_probability(message)
+    try:
+        # Sanitize input to prevent prompt injection
+        is_valid, result = sanitize_input(message)
+        if not is_valid:
+            return f"Error: {result}"
 
-    if is_scam:
-        # Format HIGH_RISK_RESPONSE_PROMPT with specific scam type
-        scam_explanation = f"{scam_type.replace('_', ' ')} scams often trick people into sending money or sharing personal details under false pretenses"
-        response = HIGH_RISK_RESPONSE_PROMPT.format(
-            score=0,  # Score not used, kept for prompt compatibility
-            scam_type=scam_type.replace('_', ' ').title(),
-            explain_tactic_briefly=scam_explanation
-        )
-    else:
-        # Format LOW_RISK_RESPONSE_PROMPT
-        response = LOW_RISK_RESPONSE_PROMPT.format(score=0)
+        # Predict scam probability
+        prob_like_score, is_scam = predict_scam_probability(result)
 
-    return response
+        if is_scam:
+            # Initialize LLM settings for Azure OpenAI
+            # Classify scam type using Azure OpenAI
+            try:
+                classification_result = classify_scam_with_azure_config(
+                    description=result,
+                    api_key=llm_settings.AZURE_OPENAI_KEY,
+                    endpoint=llm_settings.AZURE_OPENAI_ENDPOINT,
+                    deployment_id=llm_settings.AZURE_MODEL_IMAGE_DEPLOYMENT_ID,
+                    api_version=llm_settings.OPENAI_API_VERSION
+                )
+
+                # Extract scam type and additional info from classification
+                scam_type = classification_result.get('scam_type', 'Other')
+                confidence_score = classification_result.get('confidence_score', 0)
+                reasoning = classification_result.get('reasoning', '')
+
+                # Check if there was an error in classification
+                if classification_result.get('error', False):
+                    scam_type = 'Other'  # Fallback to 'Other' if classification failed
+
+            except Exception as classification_error:
+                # Fallback to original classification method if Azure call fails
+                print(f"Azure classification failed: {str(classification_error)}")
+                scam_type = classify_scam_type(result) if hasattr(globals(), 'classify_scam_type') else 'Other'
+                confidence_score = 0
+                reasoning = "Classification via backup method due to Azure API issue"
+
+            # Format the high-risk response with enhanced information
+            response = HIGH_RISK_RESPONSE_PROMPT.format(
+                score=prob_like_score,  # Include probability score for user transparency
+                scam_type=scam_type.replace('_', ' ').title(),
+                explain_tactic_briefly=reasoning
+            )
+
+            # Optionally add confidence and reasoning info if available
+            if confidence_score > 0:
+                response += f"\n\n**Classification Confidence:** {confidence_score}%"
+            if reasoning and len(reasoning) > 10:  # Only add if reasoning is substantial
+                response += f"\n**Analysis:** {reasoning[:200]}{'...' if len(reasoning) > 200 else ''}"
+
+        else:
+            response = LOW_RISK_RESPONSE_PROMPT.format(score=prob_like_score)
+
+        return response
+
+    except Exception as e:
+        # Handle unexpected errors (e.g., model failure)
+        return f"Error: Unable to process your request due to an issue ({str(e)}). Please try again with a valid description."
 
 
 # Gradio interface

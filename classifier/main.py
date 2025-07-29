@@ -16,7 +16,11 @@ nltk.download('stopwords')
 # Load pre-trained DistilBERT tokenizer and model for embedding generation
 tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
 model_bert = DistilBertModel.from_pretrained('distilbert-base-uncased')
-
+import os
+model_path = os.path.join(os.path.dirname(__file__), 'scam_detector_distilbert_model.pkl')
+scaler_path = os.path.join(os.path.dirname(__file__), 'scaler.pkl')
+model_svm = joblib.load(model_path)
+scaler = joblib.load(scaler_path)
 
 # Function to get [CLS] embedding for a description
 def get_cls_embedding(text):
@@ -29,10 +33,6 @@ def get_cls_embedding(text):
 
 # Function to predict scam probability with custom normalization
 def predict_scam_probability(text):
-    # Load the saved model (assume it's pre-trained without PCA)
-    model_svm = joblib.load('scam_detector_distilbert_model.pkl')
-    scaler = joblib.load('scaler.pkl')  # Uncomment if scaler was used
-
     # Preprocess the input description
     processed_text = clean_text_conservative(text)
     if not processed_text:
