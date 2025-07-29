@@ -1,0 +1,9 @@
+gradio
+boto3
+botocore
+openai
+nltk
+seaborn
+numpy
+torch
+transformers

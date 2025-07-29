@@ -1,0 +1,13 @@
+graph TD
+    U[User] -->|Enters transaction description| UI[Chat Interface - Gradio]
+    UI -->|Sends input| CTRL[Chatbot Logic]
+    CTRL -->|Scam analysis| DETECTOR[Scam Classifier]
+    DETECTOR -->|Probability and type| CTRL
+
+    CTRL -->|Likely scam| WARN[Persuasive Warning]
+    CTRL -->|Unlikely scam| SAFE[Friendly Acknowledgment]
+
+    WARN -->|Response| UI
+    SAFE -->|Response| UI
+
+    UI -->|Displays response| U
