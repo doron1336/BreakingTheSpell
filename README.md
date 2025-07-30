@@ -79,5 +79,5 @@ but we can also build a cascade of experts that can detect a type of scam and ag
 
 trail and error - 
 while building the classifier I tried traditional methods like word2vec and tf-idf, eventually I used BERT since the tf-idf was too sparse and I know BERT to be good at embedding text like that, i have used finBert in the past and got good results.
-
+the classifier is not perfect to say the least, but its an exploration of an idea that i had 
 

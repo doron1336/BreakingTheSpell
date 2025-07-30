@@ -12,7 +12,7 @@ nltk.download('punkt')
 nltk.download('stopwords')
 
 # Load the dataset
-df = pd.read_csv('/Users/doron/Desktop/personal/BreakingTheSpell/classifier/data/scams_sample.csv')  # Replace with your CSV file path
+df = pd.read_csv('/data/scams_sample.csv')  # Replace with your CSV file path
 df['is_scam'] = df['scam_type'].apply(lambda x: 'not_scam' if x == 'not_scam' else 'scam')
 
 # 2. Distribution of Scam Types (Multiclass Perspective)

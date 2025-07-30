@@ -15,7 +15,7 @@ import joblib
 nltk.download('punkt')
 nltk.download('stopwords')
 
-CSV_PATH = '/Users/doron/Desktop/personal/BreakingTheSpell/classifier/data/scams_sample.csv'
+CSV_PATH = '/data/scams_sample.csv'
 description_column = "description"
 descriptions, labels = load_and_prepare_data(CSV_PATH, description_column=description_column,
                                              num_synthetic_samples=1000)

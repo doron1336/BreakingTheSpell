@@ -24,6 +24,6 @@ def load_and_prepare_data(file_path, description_column='description', num_synth
 
 
 if __name__ == "__main__":
-    CSV_PATH = '/Users/doron/Desktop/personal/BreakingTheSpell/classifier/data/scams_sample.csv'
+    CSV_PATH = '/data/scams_sample.csv'
     description_column = "description"
     load_and_prepare_data(CSV_PATH, description_column=description_column, num_synthetic_samples=1000)
